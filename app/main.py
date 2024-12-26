@@ -1,6 +1,5 @@
 import streamlit as st
-
-from ui import Sidebar, HoldingsInput, CashInput, Portfolio
+from ui import CashInput, HoldingsInput, Portfolio, Sidebar
 
 st.set_page_config(layout="wide", page_title="RePort", page_icon="⚖️")
 
@@ -10,11 +9,11 @@ with st.sidebar:
     rebalance_type = Sidebar.select_box()
     is_frac_shares = Sidebar.check_box_frac_shares()
     add_sample_data = Sidebar.check_box_sample_data()
-    brokerage_plaftorm = Sidebar.select_brokerage_platform()
+    brokerage_platform = Sidebar.select_brokerage_platform()
     holdings_file = Sidebar.file_upload_holdings()
     target_weights = Sidebar.file_upload_target_weights()
     add_holdings_data = Sidebar.check_box_holdings_data(
-        brokerage_plaftorm, holdings_file, target_weights
+        brokerage_platform, holdings_file, target_weights
     )
     Portfolio.create_tables(rebalance_type, is_frac_shares)
 

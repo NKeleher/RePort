@@ -9,14 +9,33 @@ db = DuckDB()
 
 
 class Sidebar:
+    """Class to handle the sidebar components of the Streamlit app."""
+
     def header():
+        """Display the header for the sidebar."""
         st.header("Configurations")
 
     def radio():
+        """Display a radio button for input method selection.
+
+        Returns
+        -------
+        str
+            The selected input method.
+
+        """
         input_method = st.radio("Input Method", ("File", "Manual"))
         return input_method
 
     def select_box():
+        """Display a select box for rebalance type selection.
+
+        Returns
+        -------
+        str
+            The selected rebalance type.
+
+        """
         rebalance_type = st.selectbox(
             "Select Rebalance Type",
             ("Investable Cash Dynamic", "Investable Cash Target", "Whole Portfolio"),
@@ -24,20 +43,37 @@ class Sidebar:
         return rebalance_type
 
     def check_box_frac_shares():
+        """Display a checkbox for fractional share investing option.
+
+        Returns
+        -------
+        bool
+            True if fractional share investing is allowed, False otherwise.
+
+        """
         is_frac_shares = st.checkbox("Allow fractional share investing?")
         return is_frac_shares
 
     def check_box_sample_data():
+        """Display a checkbox for adding sample data.
+
+        Returns
+        -------
+        bool
+            True if sample data is to be added, False otherwise.
+
+        """
+
         def add_sample_data():
             if st.session_state.add_sample_data:
                 db.query("DELETE FROM cash")
                 db.query("DELETE FROM holdings")
                 db.query(
                     """
-                INSERT INTO 
-                    cash 
-                SELECT 
-                    * 
+                INSERT INTO
+                    cash
+                SELECT
+                    *
                 FROM
                     read_csv_auto('app/data/example_cash.csv')
                 """
@@ -45,11 +81,11 @@ class Sidebar:
                 db.query(
                     """
                 INSERT INTO
-                    holdings 
-                SELECT 
+                    holdings
+                SELECT
                     md5(concat(lower(trim(account_name)),lower(trim(ticker)))),
-                    * 
-                FROM 
+                    *
+                FROM
                     read_csv_auto('app/data/example_holdings.csv')
                 """
                 )
@@ -67,22 +103,46 @@ class Sidebar:
         return add_sample_data
 
     def select_brokerage_platform():
-        brokerage_plaftorm = st.selectbox(
-            "Select Brokerage Plaform",
+        """Display a select box for brokerage platform selection.
+
+        Returns
+        -------
+        str
+            The selected brokerage platform.
+
+        """
+        brokerage_platform = st.selectbox(
+            "Select Brokerage Platform",
             ("Charles Schwab",),
         )
-        return brokerage_plaftorm
+        return brokerage_platform
 
     def file_upload_holdings():
+        """Display a file uploader for holdings file.
+
+        Returns
+        -------
+        StringIO or None
+            The contents of the uploaded file, or None if no file is uploaded.
+
+        """
         holdings_file = st.file_uploader(
             "Upload Holdings file", accept_multiple_files=False
         )
-        file_contents = None 
+        file_contents = None
         if holdings_file is not None:
             file_contents = StringIO(holdings_file.getvalue().decode("utf-8"))
-        return file_contents 
+        return file_contents
 
     def file_upload_target_weights():
+        """Display a file uploader for target weights JSON file.
+
+        Returns
+        -------
+        dict or None
+            The contents of the uploaded JSON file, or None if no file is uploaded.
+
+        """
         target_weights_file = st.file_uploader(
             "Upload target weights json file", accept_multiple_files=False
         )
@@ -91,15 +151,33 @@ class Sidebar:
             file_contents = json.loads(target_weights_file.getvalue())
         return file_contents
 
-    def check_box_holdings_data(brokerage_plaftorm, holdings_file, target_weights):
-        def add_holdings_data(brokerage_plaftorm, holdings_file, target_weights):
+    def check_box_holdings_data(brokerage_platform, holdings_file, target_weights):
+        """Display a checkbox for adding holdings data.
+
+        Parameters
+        ----------
+        brokerage_platform : str
+            The selected brokerage platform.
+        holdings_file : StringIO
+            The contents of the uploaded holdings file.
+        target_weights : dict
+            The target weights data.
+
+        Returns
+        -------
+        bool
+            True if holdings data is to be added, False otherwise.
+
+        """
+
+        def add_holdings_data(brokerage_platform, holdings_file, target_weights):
             if st.session_state.add_holdings_data:
                 db.query("DELETE FROM cash")
                 db.query("DELETE FROM holdings")
 
                 holdings_df = None
-                if brokerage_plaftorm == "Charles Schwab":
-                    holdings_df = charles_schwab_file_parser(
+                if brokerage_platform == "Charles Schwab":
+                    holdings_df = charles_schwab_file_parser(  # noqa: F841
                         holdings_file, target_weights
                     )
                 else:
@@ -107,12 +185,12 @@ class Sidebar:
 
                 db.query(
                     """
-                INSERT INTO 
-                    cash 
-                SELECT 
+                INSERT INTO
+                    cash
+                SELECT
                     account_name,
                     shares as cash
-                FROM 
+                FROM
                     holdings_df
                 WHERE
                     ticker = 'Cash & Cash Investments'
@@ -121,11 +199,11 @@ class Sidebar:
                 db.query(
                     """
                 INSERT INTO
-                    holdings 
-                SELECT 
+                    holdings
+                SELECT
                     md5(concat(lower(trim(account_name)),lower(trim(ticker)))),
-                    * 
-                FROM 
+                    *
+                FROM
                     holdings_df
                 WHERE
                     ticker != 'Cash & Cash Investments'
@@ -136,6 +214,21 @@ class Sidebar:
                 db.query("DELETE FROM holdings")
 
         def charles_schwab_file_parser(file, target_weights):
+            """Parse the Charles Schwab holdings file.
+
+            Parameters
+            ----------
+            file : StringIO
+                The contents of the uploaded holdings file.
+            target_weights : dict
+                The target weights data.
+
+            Returns
+            -------
+            pd.DataFrame
+                The parsed holdings data as a DataFrame.
+
+            """
             holdings_dict = {
                 "account_name": [],
                 "ticker": [],
@@ -157,22 +250,14 @@ class Sidebar:
                 lines = [line.strip() for line in account.split("\n")]
                 # first line is account
                 account_name = (
-                    lines[0]
-                    .split(",")[0]
-                    .split()[0]
-                    .replace("_", " ")
-                    .replace('"', "")
+                    lines[0].split(",")[0].split()[0].replace("_", " ").replace('"', "")
                 )
                 # second line is headers
-                headers = [
-                    header.replace('"', "") for header in lines[1].split(",")
-                ]
+                headers = [header.replace('"', "") for header in lines[1].split(",")]  # noqa: F841
                 # the rest are the actual values
                 for symbol in lines[2:]:
                     values = [value.replace('"', "") for value in symbol.split(",")]
-                    if values[0] == "Account Total":
-                        continue
-                    elif values[0] == "":
+                    if values[0] == "Account Total" or values[0] == "":
                         continue
                     elif values[0] == "Cash & Cash Investments":
                         holdings_dict["account_name"].append(account_name)
@@ -198,7 +283,7 @@ class Sidebar:
             "Add holdings data?",
             help="Warning: This will delete all current data!",
             on_change=lambda: add_holdings_data(
-                brokerage_plaftorm, holdings_file, target_weights
+                brokerage_platform, holdings_file, target_weights
             ),
             key="add_holdings_data",
         )
@@ -207,7 +292,16 @@ class Sidebar:
 
 
 class CashInput:
+    """Class to handle the cash input components of the Streamlit app."""
+
     def file():
+        """Display a file uploader for cash file.
+
+        Returns
+        -------
+        None
+
+        """
         uploaded_data = st.file_uploader(
             "Drag and Drop Cash File or Click to Upload",
             type=".csv",
@@ -218,7 +312,7 @@ class CashInput:
             st.success("Uploaded your file!")
             uploaded_data = uploaded_data
 
-            df = pd.read_csv(uploaded_data)
+            df = pd.read_csv(uploaded_data)  # noqa: F841
 
             db.query("DELETE FROM cash")
             db.query("INSERT INTO cash SELECT * FROM df")
@@ -226,7 +320,16 @@ class CashInput:
 
 
 class HoldingsInput:
+    """Class to handle the holdings input components of the Streamlit app."""
+
     def file():
+        """Display a file uploader for holdings file.
+
+        Returns
+        -------
+        None
+
+        """
         uploaded_data = st.file_uploader(
             "Drag and Drop Holdings File or Click to Upload",
             type=".csv",
@@ -236,16 +339,16 @@ class HoldingsInput:
             st.success("Uploaded your file!")
             uploaded_data = uploaded_data
 
-            df = pd.read_csv(uploaded_data)
+            df = pd.read_csv(uploaded_data)  # noqa: F841
 
             db.query("DELETE FROM holdings")
             db.query(
                 """
             INSERT INTO
-                holdings 
-            SELECT 
+                holdings
+            SELECT
                 md5(concat(lower(trim(account_name)),lower(trim(ticker)))),
-                * 
+                *
             FROM df
             """
             )
@@ -253,21 +356,43 @@ class HoldingsInput:
 
 
 class Portfolio:
+    """Class to handle the portfolio operations of the Streamlit app."""
+
     def create_tables(rebalance_type, is_frac_shares):
+        """Create the necessary tables for the portfolio.
+
+        Parameters
+        ----------
+        rebalance_type : str
+            The type of rebalance to perform.
+        is_frac_shares : bool
+            Whether fractional shares are allowed.
+
+        """
         db.query(get_query_string("create_holdings_table"))
         db.query(get_query_string("create_cash_table"))
         Portfolio.create_future_holdings(rebalance_type, is_frac_shares)
 
     def update_tables(table: tuple, df: pd.DataFrame) -> None:
+        """Update the specified table with the given DataFrame.
+
+        Parameters
+        ----------
+        table : tuple
+            The table to update.
+        df : pd.DataFrame
+            The DataFrame containing the new data.
+
+        """
         if table == "cash":
             db.query("DELETE FROM cash")
             db.query(
                 """
-                INSERT INTO 
-                    cash 
+                INSERT INTO
+                    cash
                 SELECT
                     *
-                FROM 
+                FROM
                     df
                 """
             )
@@ -276,23 +401,47 @@ class Portfolio:
             db.query(
                 """
             INSERT INTO
-                holdings 
-            SELECT 
+                holdings
+            SELECT
                 md5(concat(lower(trim(account_name)),lower(trim(ticker)))),
-                * 
-            FROM 
+                *
+            FROM
                 df
             """
             )
         return
 
     def get_raw_holdings_table():
+        """Fetch the raw holdings table.
+
+        Returns
+        -------
+        pd.DataFrame
+            The raw holdings table.
+
+        """
         return db.fetch(get_query_string("select_raw_holdings"))
 
     def get_raw_cash_table():
+        """Fetch the raw cash table.
+
+        Returns
+        -------
+        pd.DataFrame
+            The raw cash table.
+
+        """
         return db.fetch(get_query_string("select_raw_cash"))
 
     def get_accounts():
+        """Fetch the list of accounts.
+
+        Returns
+        -------
+        list
+            The list of accounts.
+
+        """
         accounts = list(
             map(
                 lambda _tup: str(_tup[0]),
@@ -302,6 +451,14 @@ class Portfolio:
         return accounts
 
     def dynamic_invest(account):
+        """Perform dynamic investment for the given account.
+
+        Parameters
+        ----------
+        account : str
+            The account to perform dynamic investment for.
+
+        """
         df = db.fetch(get_query_string("select_future_holdings"))
 
         cash = db.fetch(
@@ -312,10 +469,10 @@ class Portfolio:
         is_cash_left = bool(
             db.fetch(
                 f"""
-            SELECT 
-                * 
-            FROM 
-                df 
+            SELECT
+                *
+            FROM
+                df
             WHERE
                 price <= {cash}
                 AND account_name = '{account}'
@@ -332,7 +489,7 @@ class Portfolio:
                     1 + shares,
                     cash - price as new_cash,
                     cost + price as cost
-                FROM 
+                FROM
                     df
                 WHERE
                     price <= {cash}
@@ -359,14 +516,14 @@ class Portfolio:
             db.query(
                 """
                 UPDATE future_cash SET
-                    cash = ? 
+                    cash = ?
                 WHERE
                     account_name    = ?
                 """,
                 [(new_cash, account)],
             )
 
-            df = db.fetch(get_query_string("select_future_holdings"))
+            df = db.fetch(get_query_string("select_future_holdings"))  # noqa: F841
 
             cash = db.fetch(
                 f"SELECT cash FROM future_cash WHERE account_name = '{account}'",
@@ -376,10 +533,10 @@ class Portfolio:
             is_cash_left = bool(
                 db.fetch(
                     f"""
-                SELECT 
-                    * 
-                FROM 
-                    df 
+                SELECT
+                    *
+                FROM
+                    df
                 WHERE
                     price <= {cash}
                     AND account_name = '{account}'
@@ -389,9 +546,19 @@ class Portfolio:
             )
 
         return
-    
+
     def create_future_holdings(rebalance_type, is_frac_shares):
-        df = db.fetch(get_query_string("select_holdings"))
+        """Create the future holdings table based on the rebalance type and fractional shares setting.
+
+        Parameters
+        ----------
+        rebalance_type : str
+            The type of rebalance to perform.
+        is_frac_shares : bool
+            Whether fractional shares are allowed.
+
+        """
+        df = db.fetch(get_query_string("select_holdings"))  # noqa: F841
 
         db.fetch("DROP TABLE IF EXISTS future_holdings")
         db.fetch("DROP TABLE IF EXISTS future_cash")
@@ -413,16 +580,16 @@ class Portfolio:
 
         sql = f"""
         CREATE TABLE future_holdings as (
-            SELECT 
+            SELECT
                 holding_id,
-                account_name,   
-                ticker,         
-                security_name,  
-                shares + {column} as shares,        
-                target_weight,  
-                cost + ({column} * price) as cost,           
+                account_name,
+                ticker,
+                security_name,
+                shares + {column} as shares,
+                target_weight,
+                cost + ({column} * price) as cost,
                 price
-             FROM df 
+             FROM df
             )
        """
 
@@ -430,11 +597,11 @@ class Portfolio:
 
         db.fetch(
             f"""
-        CREATE TABLE future_cash as ( 
-            SELECT 
-                account_name, 
-                max(cash) - sum({column} * price) as cash 
-             FROM df 
+        CREATE TABLE future_cash as (
+            SELECT
+                account_name,
+                max(cash) - sum({column} * price) as cash
+             FROM df
              GROUP BY 1
             )
        """
@@ -452,8 +619,23 @@ class Portfolio:
         return
 
     def get_holdings_df_filtered(accounts, index):
-        raw_holdings_df = db.fetch(get_query_string("select_holdings"))
-        raw_future_holdings_df = db.fetch(get_query_string("select_future_holdings"))
+        """Fetch the filtered holdings DataFrame for the given account.
+
+        Parameters
+        ----------
+        accounts : list
+            The list of accounts.
+        index : int
+            The index of the selected account.
+
+        Returns
+        -------
+        tuple
+            The holdings DataFrame and future holdings DataFrame.
+
+        """
+        raw_holdings_df = db.fetch(get_query_string("select_holdings"))  # noqa: F841
+        raw_future_holdings_df = db.fetch(get_query_string("select_future_holdings"))  # noqa: F841
         holdings_df = db.fetch(
             f"""
             SELECT *
@@ -472,6 +654,18 @@ class Portfolio:
         return holdings_df, future_holdings_df
 
     def investable_cash_metric(accounts, index, column):
+        """Display the investable cash metric for the given account.
+
+        Parameters
+        ----------
+        accounts : list
+            The list of accounts.
+        index : int
+            The index of the selected account.
+        column : streamlit.delta_generator.DeltaGenerator
+            The Streamlit column to display the metric in.
+
+        """
         holdings_df, future_holdings_df = Portfolio.get_holdings_df_filtered(
             accounts, index
         )
@@ -482,6 +676,18 @@ class Portfolio:
         return
 
     def future_cash_metric(accounts, index, column):
+        """Display the future cash metric for the given account.
+
+        Parameters
+        ----------
+        accounts : list
+            The list of accounts.
+        index : int
+            The index of the selected account.
+        column : streamlit.delta_generator.DeltaGenerator
+            The Streamlit column to display the metric in.
+
+        """
         holdings_df, future_holdings_df = Portfolio.get_holdings_df_filtered(
             accounts, index
         )
@@ -497,6 +703,18 @@ class Portfolio:
         return None
 
     def market_value_metric(accounts, index, column):
+        """Display the market value metric for the given account.
+
+        Parameters
+        ----------
+        accounts : list
+            The list of accounts.
+        index : int
+            The index of the selected account.
+        column : streamlit.delta_generator.DeltaGenerator
+            The Streamlit column to display the metric in.
+
+        """
         holdings_df, future_holdings_df = Portfolio.get_holdings_df_filtered(
             accounts, index
         )
@@ -516,6 +734,18 @@ class Portfolio:
         return None
 
     def gain_loss_metric(accounts, index, column):
+        """Display the gain/loss metric for the given account.
+
+        Parameters
+        ----------
+        accounts : list
+            The list of accounts.
+        index : int
+            The index of the selected account.
+        column : streamlit.delta_generator.DeltaGenerator
+            The Streamlit column to display the metric in.
+
+        """
         holdings_df, future_holdings_df = Portfolio.get_holdings_df_filtered(
             accounts, index
         )
@@ -528,13 +758,19 @@ class Portfolio:
         return None
 
     def color_negative_red(value):
-        """
-        Colors elements in a date frame
-        green if positive and red if
-        negative. Does not color NaN
-        values.
-        """
+        """Color elements in a DataFrame green if positive and red if negative.
 
+        Parameters
+        ----------
+        value : float
+            The value to color.
+
+        Returns
+        -------
+        str
+            The CSS color property.
+
+        """
         if value < 0:
             color = "red"
         elif value > 0:
@@ -542,9 +778,21 @@ class Portfolio:
         else:
             color = "black"
 
-        return "color: %s" % color
+        return f"color: {color}"
 
     def holdings_df_styled(accounts, index, column):
+        """Display the styled holdings DataFrame for the given account.
+
+        Parameters
+        ----------
+        accounts : list
+            The list of accounts.
+        index : int
+            The index of the selected account.
+        column : streamlit.delta_generator.DeltaGenerator
+            The Streamlit column to display the DataFrame in.
+
+        """
         holdings_df, future_holdings_df = Portfolio.get_holdings_df_filtered(
             accounts, index
         )
@@ -591,6 +839,18 @@ class Portfolio:
         return None
 
     def future_holdings_df_styled(accounts, index, column):
+        """Display the styled future holdings DataFrame for the given account.
+
+        Parameters
+        ----------
+        accounts : list
+            The list of accounts.
+        index : int
+            The index of the selected account.
+        column : streamlit.delta_generator.DeltaGenerator
+            The Streamlit column to display the DataFrame in.
+
+        """
         holdings_df, future_holdings_df = Portfolio.get_holdings_df_filtered(
             accounts, index
         )
@@ -637,12 +897,24 @@ class Portfolio:
         return None
 
     def grouped_bar_chart(accounts, index, column):
+        """Display a grouped bar chart comparing target weight differences before and after rebalance.
+
+        Parameters
+        ----------
+        accounts : list
+            The list of accounts.
+        index : int
+            The index of the selected account.
+        column : streamlit.delta_generator.DeltaGenerator
+            The Streamlit column to display the chart in.
+
+        """
         holdings_df, future_holdings_df = Portfolio.get_holdings_df_filtered(
             accounts, index
         )
         combined_df = db.fetch(get_query_string("combined_holdings"))
 
-        with open("app/grouped_bar_chart.json", "r") as file:
+        with open("app/grouped_bar_chart.json") as file:
             vega_chart = json.load(file)
 
         column.markdown(
@@ -658,10 +930,22 @@ class Portfolio:
         return None
 
     def orders_df_styled(accounts, index, column):
+        """Display the styled orders DataFrame for the given account.
+
+        Parameters
+        ----------
+        accounts : list
+            The list of accounts.
+        index : int
+            The index of the selected account.
+        column : streamlit.delta_generator.DeltaGenerator
+            The Streamlit column to display the DataFrame in.
+
+        """
         holdings_df, future_holdings_df = Portfolio.get_holdings_df_filtered(
             accounts, index
         )
-        combined_df = db.fetch(get_query_string("combined_holdings"))
+        combined_df = db.fetch(get_query_string("combined_holdings"))  # noqa: F841
 
         orders_df = db.fetch(get_query_string("select_orders"))
 
